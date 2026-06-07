@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:flutter/cupertino.dart';
 
 import '../services/catalog_service.dart';
 import '../services/config_store.dart';
-import '../theme/app_theme.dart';
+import '../ui/components.dart';
+import '../ui/scaffolds.dart';
+import '../ui/tokens.dart';
 
-/// Add / remove AltStore-style repository sources.
 class SourcesScreen extends StatefulWidget {
   const SourcesScreen({super.key});
   @override
@@ -36,125 +36,89 @@ class _SourcesScreenState extends State<SourcesScreen> {
   }
 
   Future<void> _add() async {
-    final url = _url.text.trim();
-    if (!url.startsWith('http')) return;
+    final u = _url.text.trim();
+    if (!RegExp(r'^https?://.+', caseSensitive: false).hasMatch(u)) {
+      showToast(context, 'Enter a valid repo URL', tone: ToastTone.error, icon: CupertinoIcons.exclamationmark_circle);
+      return;
+    }
     setState(() => _adding = true);
-    await ConfigStore.instance.addSource(url);
+    await ConfigStore.instance.addSource(u);
     _url.clear();
     await _reload();
-    if (mounted) setState(() => _adding = false);
+    if (!mounted) return;
+    final matches = _sources.where((s) => s.url == u);
+    final ok = matches.isNotEmpty && matches.first.error == null;
+    showToast(context, ok ? 'Source added' : 'Source failed to load',
+        tone: ok ? ToastTone.ok : ToastTone.error,
+        icon: ok ? CupertinoIcons.check_mark_circled : CupertinoIcons.exclamationmark_circle);
+    setState(() => _adding = false);
   }
 
-  Future<void> _remove(String url) async {
-    await ConfigStore.instance.removeSource(url);
+  Future<void> _delete(CatalogSource s) async {
+    await ConfigStore.instance.removeSource(s.url);
     await _reload();
+    if (mounted) showToast(context, 'Source removed', icon: CupertinoIcons.trash);
   }
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return GlassScaffold(
-      appBar: GlassAppBar(
-        title: const Text('Sources',
-            style: TextStyle(fontWeight: FontWeight.w600)),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            GlassCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  GlassTextField(
-                    controller: _url,
-                    placeholder: 'https://…/apps.json',
-                    keyboardType: TextInputType.url,
-                    onSubmitted: (_) => _add(),
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: _adding ? null : _add,
-                    child: GlassContainer(
-                      shape: const LiquidRoundedSuperellipse(borderRadius: 14),
-                      child: Container(
-                        height: 46,
-                        alignment: Alignment.center,
-                        child: _adding
-                            ? const GlassProgressIndicator.circular(size: 18)
-                            : const Text('Add source',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: kAccent)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+    final c = context.c;
+    return CompactScaffold(
+      title: 'Sources',
+      child: ListView(
+        padding: const EdgeInsets.only(top: 8, bottom: 24),
+        children: [
+          const SectionHeader('Add a source'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                AppField(controller: _url, placeholder: 'https://…/apps.json', icon: CupertinoIcons.link, mono: true, keyboardType: TextInputType.url, onSubmitted: (_) => _add()),
+                const SizedBox(height: 10),
+                PillButton(label: 'Add source', icon: CupertinoIcons.add, loading: _adding, onTap: _add),
+              ],
             ),
-            const SizedBox(height: 18),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 40),
-                child: Center(child: GlassProgressIndicator.circular(size: 28)),
-              )
-            else if (_sources.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text('No sources yet.\nAdd an AltStore repo URL above.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: dark ? Colors.white54 : Colors.black45)),
-              )
-            else
-              ..._sources.map((s) => _sourceTile(s, dark)),
-          ],
-        ),
+          ),
+          const SectionFooter('AltStore-style repositories. Each repo’s apps appear in the Catalog.'),
+          const SizedBox(height: 22),
+          SectionHeader('${_sources.length} source${_sources.length == 1 ? '' : 's'}'),
+          if (_loading)
+            const Padding(padding: EdgeInsets.only(top: 30), child: Center(child: CupertinoActivityIndicator()))
+          else if (_sources.isEmpty)
+            const EmptyState(icon: CupertinoIcons.folder, title: 'No sources yet', message: 'Add a repository URL above to start browsing apps.')
+          else
+            GroupCard(children: [
+              for (var i = 0; i < _sources.length; i++) _sourceRow(c, _sources[i], i == _sources.length - 1),
+            ]),
+        ],
       ),
     );
   }
 
-  Widget _sourceTile(CatalogSource s, bool dark) {
-    final ok = s.error == null;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GlassCard(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(ok ? Icons.folder_special : Icons.error_outline,
-                color: ok ? kAccent : const Color(0xFFFF453A)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(s.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(ok ? '${s.apps.length} apps' : 'Failed: ${s.error}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          color: ok
-                              ? (dark ? Colors.white54 : Colors.black45)
-                              : const Color(0xFFFF453A))),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              color: dark ? Colors.white54 : Colors.black45,
-              onPressed: () => _remove(s.url),
-            ),
-          ],
-        ),
+  Widget _sourceRow(AppColors c, CatalogSource s, bool last) {
+    final failed = s.error != null;
+    return RowTile(
+      last: last,
+      leftInset: 60,
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(color: failed ? c.red.withValues(alpha: 0.14) : c.fill, borderRadius: BorderRadius.circular(9)),
+        child: Icon(CupertinoIcons.folder, size: 19, color: failed ? c.red : c.labelSecondary),
+      ),
+      trailing: GestureDetector(
+        onTap: () => _delete(s),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(CupertinoIcons.trash, size: 20, color: c.red)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.callout(c.label).copyWith(fontWeight: FontWeight.w600)),
+          Text(failed ? 'Failed: ${s.error}' : '${s.apps.length} app${s.apps.length == 1 ? '' : 's'}',
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote(failed ? c.red : c.labelSecondary)),
+          Text(s.url.replaceFirst(RegExp(r'^https?://'), ''),
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: AppType.mono, fontSize: 11, color: c.labelTertiary)),
+        ],
       ),
     );
   }

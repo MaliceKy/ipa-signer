@@ -16,6 +16,7 @@ class CatalogApp {
     this.iconUrl,
     this.description,
     this.tintColor,
+    this.category,
     required this.sourceName,
   });
 
@@ -29,6 +30,7 @@ class CatalogApp {
   final String? iconUrl;
   final String? description;
   final Color? tintColor;
+  final String? category;
   final String sourceName;
 
   String? get prettySize {
@@ -63,6 +65,7 @@ class CatalogApp {
               j['description'])
           ?.toString(),
       tintColor: _parseHex(j['tintColor']?.toString()),
+      category: (j['category'] ?? j['cat'] ?? j['subtitle'])?.toString(),
       sourceName: sourceName,
     );
   }
