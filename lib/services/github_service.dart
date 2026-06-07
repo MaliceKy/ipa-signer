@@ -2,9 +2,18 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:http/http.dart' as http;
 
 import 'config_store.dart';
+
+/// One step of the running workflow job (for the live console).
+class JobStep {
+  JobStep(this.name, this.status, this.conclusion);
+  final String name;
+  final String status; // queued | in_progress | completed
+  final String? conclusion; // success | failure | skipped | null
+}
 
 const _workflowFile = 'sign-ipa.yml';
 
@@ -77,6 +86,7 @@ class GitHubService {
     required String fileName,
     required Uint8List bytes,
     void Function(String stage)? onStage,
+    void Function(double fraction)? onProgress,
   }) async {
     final slug = await _slug;
     final tag = 'src-${DateTime.now().millisecondsSinceEpoch}';
@@ -100,22 +110,32 @@ class GitHubService {
     final uploadUrl = (rel['upload_url'] as String).split('{').first;
 
     onStage?.call('Uploading ${(bytes.length / 1048576).toStringAsFixed(1)} MB…');
-    final upRes = await http.post(
-      Uri.parse('$uploadUrl?name=${Uri.encodeComponent(fileName)}'),
-      headers: {
-        ...await _headers(),
-        'Content-Type': 'application/octet-stream',
-      },
-      body: bytes,
-    );
-    if (upRes.statusCode != 201) {
-      throw GitHubException('Asset upload failed', upRes);
+    // dio reports real byte-level send progress so the UI bar is accurate.
+    final dio = Dio();
+    try {
+      final res = await dio.post(
+        '$uploadUrl?name=${Uri.encodeComponent(fileName)}',
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {
+            ...await _headers(),
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': bytes.length,
+          },
+          responseType: ResponseType.json,
+        ),
+        onSendProgress: (sent, total) {
+          if (total > 0) onProgress?.call(sent / total);
+        },
+      );
+      final asset = res.data as Map;
+      final assetId = asset['id'] as int;
+      return 'https://api.github.com/repos/$slug/releases/assets/$assetId'
+          '#release=$releaseId';
+    } on DioException catch (e) {
+      throw 'Asset upload failed (HTTP ${e.response?.statusCode}): '
+          '${e.response?.data ?? e.message}';
     }
-    final asset = jsonDecode(upRes.body) as Map<String, dynamic>;
-    final assetId = asset['id'] as int;
-    // API asset URL — the workflow downloads this authenticated.
-    return 'https://api.github.com/repos/$slug/releases/assets/$assetId'
-        '#release=$releaseId';
   }
 
   /// Triggers the signing workflow. Returns the run_tag to track it.
@@ -181,6 +201,32 @@ class GitHubService {
         match['conclusion'] as String?,
       ),
     );
+  }
+
+  /// Fetches the steps of the run's job so the UI can show a live console.
+  Future<List<JobStep>> pollJobSteps(int runId) async {
+    final slug = await _slug;
+    final res = await http.get(
+      Uri.parse('https://api.github.com/repos/$slug/actions/runs/$runId/jobs'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) return const [];
+    final jobs = (jsonDecode(res.body)['jobs'] as List?) ?? const [];
+    if (jobs.isEmpty) return const [];
+    final steps = ((jobs.first as Map)['steps'] as List?) ?? const [];
+    return steps
+        .whereType<Map>()
+        .map((s) => JobStep(
+              (s['name'] ?? '').toString(),
+              (s['status'] ?? 'queued').toString(),
+              s['conclusion']?.toString(),
+            ))
+        // Hide GitHub's noisy implicit setup/teardown steps.
+        .where((s) =>
+            !s.name.startsWith('Set up job') &&
+            !s.name.startsWith('Post ') &&
+            !s.name.startsWith('Complete job'))
+        .toList();
   }
 
   /// The OTA install URL the user taps once signing succeeds.

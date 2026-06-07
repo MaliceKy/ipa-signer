@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../services/config_store.dart';
 import '../services/github_service.dart';
+import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key, this.onSaved});
+  const SettingsScreen({super.key, required this.theme, this.onSaved});
 
-  /// Called after a successful save (used by the gate on first run).
+  final ThemeController theme;
   final VoidCallback? onSaved;
 
   @override
@@ -18,10 +20,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _owner = TextEditingController();
   final _repo = TextEditingController();
   final _branch = TextEditingController(text: 'main');
-  final _sources = TextEditingController();
 
   bool _busy = false;
   String? _status;
+  bool _ok = false;
 
   @override
   void initState() {
@@ -35,7 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _owner.text = await cfg.owner ?? '';
     _repo.text = await cfg.repo ?? '';
     _branch.text = await cfg.branch;
-    _sources.text = (await cfg.sources).join('\n');
     if (mounted) setState(() {});
   }
 
@@ -44,17 +45,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _busy = true;
       _status = null;
     });
-    await ConfigStore.instance.save(
+    final cfg = ConfigStore.instance;
+    // Preserve existing sources; this screen no longer edits them.
+    await cfg.save(
       token: _token.text,
       owner: _owner.text,
       repo: _repo.text,
       branch: _branch.text,
-      sources: _sources.text,
+      sources: (await cfg.sources).join('\n'),
     );
-    final err = await GitHubService(ConfigStore.instance).verify();
+    final err = await GitHubService(cfg).verify();
     if (!mounted) return;
     setState(() {
       _busy = false;
+      _ok = err == null;
       _status = err ?? 'Saved & verified ✓';
     });
     if (err == null) {
@@ -65,85 +69,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text(
-            'GitHub connection',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Personal access token with "actions: write" and "contents: write" '
-            'on the signing repo (fine-grained PAT recommended).',
-            style: TextStyle(fontSize: 12, color: Colors.white60),
-          ),
-          const SizedBox(height: 12),
-          _field(_token, 'Personal access token', obscure: true),
-          _field(_owner, 'Repo owner (username/org)'),
-          _field(_repo, 'Repo name'),
-          _field(_branch, 'Branch'),
-          const SizedBox(height: 20),
-          const Text(
-            'Catalog sources',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'One AltStore-style source JSON URL per line.',
-            style: TextStyle(fontSize: 12, color: Colors.white60),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _sources,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              hintText: 'https://example.com/apps.json',
-            ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            onPressed: _busy ? null : _save,
-            child: _busy
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Save & verify'),
-          ),
-          if (_status != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _status!,
-              style: TextStyle(
-                color: _status!.contains('✓')
-                    ? Colors.greenAccent
-                    : Colors.redAccent,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final modeIndex = switch (widget.theme.mode) {
+      ThemeMode.system => 0,
+      ThemeMode.light => 1,
+      ThemeMode.dark => 2,
+    };
+    return GlassScaffold(
+      appBar: GlassAppBar(
+        title: const Text('Settings',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            _sectionLabel('APPEARANCE', dark),
+            GlassCard(
+              padding: const EdgeInsets.all(14),
+              child: GlassSegmentedControl(
+                segments: const ['System', 'Light', 'Dark'],
+                selectedIndex: modeIndex,
+                onSegmentSelected: (i) {
+                  final m = switch (i) {
+                    1 => ThemeMode.light,
+                    2 => ThemeMode.dark,
+                    _ => ThemeMode.system,
+                  };
+                  widget.theme.set(m);
+                },
               ),
             ),
+            const SizedBox(height: 22),
+            _sectionLabel('GITHUB CONNECTION', dark),
+            GlassCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _label('Personal access token', dark),
+                  GlassTextField(
+                    controller: _token,
+                    placeholder: 'ghp_… (repo + workflow scopes)',
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 14),
+                  _label('Repo owner', dark),
+                  GlassTextField(controller: _owner, placeholder: 'MaliceKy'),
+                  const SizedBox(height: 14),
+                  _label('Repo name', dark),
+                  GlassTextField(controller: _repo, placeholder: 'ipa-signer'),
+                  const SizedBox(height: 14),
+                  _label('Branch', dark),
+                  GlassTextField(controller: _branch, placeholder: 'main'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            GestureDetector(
+              onTap: _busy ? null : _save,
+              child: GlassContainer(
+                shape: const LiquidRoundedSuperellipse(borderRadius: 18),
+                child: Container(
+                  height: 54,
+                  alignment: Alignment.center,
+                  child: _busy
+                      ? const GlassProgressIndicator.circular(size: 20)
+                      : const Text('Save & verify',
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: kAccent)),
+                ),
+              ),
+            ),
+            if (_status != null) ...[
+              const SizedBox(height: 14),
+              Text(_status!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: _ok
+                          ? const Color(0xFF30D158)
+                          : const Color(0xFFFF453A))),
+            ],
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _field(TextEditingController c, String label, {bool obscure = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: c,
-        obscureText: obscure,
-        autocorrect: false,
-        enableSuggestions: false,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
         ),
       ),
     );
   }
+
+  Widget _sectionLabel(String s, bool dark) => Padding(
+        padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+        child: Text(s,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: dark ? Colors.white38 : Colors.black38)),
+      );
+
+  Widget _label(String s, bool dark) => Padding(
+        padding: const EdgeInsets.only(bottom: 6, left: 2),
+        child: Text(s,
+            style: TextStyle(
+                fontSize: 12.5,
+                color: dark ? Colors.white60 : Colors.black54)),
+      );
 }

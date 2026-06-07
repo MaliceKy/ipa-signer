@@ -1,32 +1,56 @@
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/config_store.dart';
+import 'theme/app_theme.dart';
 
-void main() => runApp(const IpaSignerApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final theme = await ThemeController.load();
+  runApp(IpaSignerApp(theme: theme));
+}
 
 class IpaSignerApp extends StatelessWidget {
-  const IpaSignerApp({super.key});
+  const IpaSignerApp({super.key, required this.theme});
+
+  final ThemeController theme;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'IPA Signer',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0A84FF),
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
-      home: const _Gate(),
+    return ListenableBuilder(
+      listenable: theme,
+      builder: (context, _) {
+        return LiquidGlassWidgets.wrap(
+          child: MaterialApp(
+            title: 'IPA Signer',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: theme.mode,
+            builder: (context, child) {
+              final b = Theme.of(context).brightness;
+              return Stack(
+                children: [
+                  Positioned.fill(child: AppTheme.background(b)),
+                  ?child,
+                ],
+              );
+            },
+            home: _Gate(theme: theme),
+          ),
+        );
+      },
     );
   }
 }
 
 /// Sends the user to Settings until GitHub config exists, then Home.
 class _Gate extends StatefulWidget {
-  const _Gate();
+  const _Gate({required this.theme});
+  final ThemeController theme;
+
   @override
   State<_Gate> createState() => _GateState();
 }
@@ -54,8 +78,8 @@ class _GateState extends State<_Gate> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-        if (snap.data == true) return const HomeScreen();
-        return SettingsScreen(onSaved: _refresh);
+        if (snap.data == true) return HomeScreen(theme: widget.theme);
+        return SettingsScreen(theme: widget.theme, onSaved: _refresh);
       },
     );
   }

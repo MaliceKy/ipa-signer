@@ -14,6 +14,8 @@ class ConfigStore {
   static const _kRepo = 'gh_repo';
   static const _kBranch = 'gh_branch';
   static const _kSources = 'catalog_sources'; // newline-separated URLs
+  static const _kThemeMode = 'theme_mode'; // system | light | dark
+  static const _kLastDuration = 'last_sign_seconds'; // ETA baseline
 
   Future<String?> get token => _storage.read(key: _kToken);
   Future<String?> get owner => _storage.read(key: _kOwner);
@@ -51,4 +53,35 @@ class ConfigStore {
       (await token)?.isNotEmpty == true &&
       (await owner)?.isNotEmpty == true &&
       (await repo)?.isNotEmpty == true;
+
+  // ── Theme ────────────────────────────────────────────────────────────────
+  Future<String> get themeMode async =>
+      (await _storage.read(key: _kThemeMode)) ?? 'system';
+
+  Future<void> setThemeMode(String mode) =>
+      _storage.write(key: _kThemeMode, value: mode);
+
+  // ── Catalog sources (add/remove individually) ──────────────────────────────
+  Future<void> setSources(List<String> urls) =>
+      _storage.write(key: _kSources, value: urls.join('\n'));
+
+  Future<void> addSource(String url) async {
+    final list = await sources;
+    final clean = url.trim();
+    if (clean.isEmpty || list.contains(clean)) return;
+    list.add(clean);
+    await setSources(list);
+  }
+
+  Future<void> removeSource(String url) async {
+    final list = await sources..remove(url);
+    await setSources(list);
+  }
+
+  // ── ETA baseline: remember how long the last successful sign took ──────────
+  Future<int> get lastSignSeconds async =>
+      int.tryParse(await _storage.read(key: _kLastDuration) ?? '') ?? 40;
+
+  Future<void> setLastSignSeconds(int s) =>
+      _storage.write(key: _kLastDuration, value: '$s');
 }
