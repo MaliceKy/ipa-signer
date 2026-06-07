@@ -237,6 +237,59 @@ class GitHubService {
     return 'itms-services://?action=download-manifest&url=$manifest';
   }
 
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+  Future<List<Map<String, dynamic>>> listReleases() async {
+    final slug = await _slug;
+    final res = await http.get(
+      Uri.parse('https://api.github.com/repos/$slug/releases?per_page=100'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) return [];
+    return (jsonDecode(res.body) as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> deleteRelease(int id) async {
+    final slug = await _slug;
+    await http.delete(
+      Uri.parse('https://api.github.com/repos/$slug/releases/$id'),
+      headers: await _headers(),
+    );
+  }
+
+  Future<void> _deleteTag(String tag) async {
+    final slug = await _slug;
+    await http.delete(
+      Uri.parse('https://api.github.com/repos/$slug/git/refs/tags/$tag'),
+      headers: await _headers(),
+    );
+  }
+
+  /// Deletes all throwaway unsigned-upload releases (tag starts `src-`).
+  /// Returns how many were removed. These are pure leftovers from uploads.
+  Future<int> cleanupUploads() async {
+    var n = 0;
+    for (final r in await listReleases()) {
+      final tag = (r['tag_name'] ?? '').toString();
+      if (tag.startsWith('src-')) {
+        await deleteRelease(r['id'] as int);
+        await _deleteTag(tag);
+        n++;
+      }
+    }
+    return n;
+  }
+
+  /// Deletes a signed release + its tag (used when removing a saved IPA file).
+  Future<void> deleteSignedRelease(String tag) async {
+    for (final r in await listReleases()) {
+      if (r['tag_name'] == tag) {
+        await deleteRelease(r['id'] as int);
+        break;
+      }
+    }
+    await _deleteTag(tag);
+  }
+
   SignStatus _statusFrom(String? status, String? conclusion) {
     if (status == 'queued') return SignStatus.queued;
     if (status == 'in_progress') return SignStatus.running;

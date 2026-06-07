@@ -84,6 +84,7 @@ class _SignScreenState extends State<SignScreen> {
   String? _runTag;
   int? _runId;
   String? _runUrl;
+  int? _srcReleaseId; // throwaway unsigned-upload release, deleted when done
   bool _installing = false;
   bool _installed = false;
 
@@ -156,6 +157,8 @@ class _SignScreenState extends State<SignScreen> {
           }),
         );
         _log('Uploaded 100% (${fmtSize(bytes.length)})', 'ok');
+        final m = RegExp(r'#release=(\d+)').firstMatch(url);
+        if (m != null) _srcReleaseId = int.parse(m.group(1)!);
       }
       if (url == null || url.isEmpty) throw 'No IPA source provided.';
 
@@ -185,6 +188,7 @@ class _SignScreenState extends State<SignScreen> {
 
   void _fail(String msg) {
     _poll?.cancel();
+    _cleanupSrc();
     if (!mounted) return;
     setState(() {
       _phase = _Phase.failed;
@@ -192,6 +196,16 @@ class _SignScreenState extends State<SignScreen> {
       _target = _pct;
     });
     _log('✗ $msg', 'error');
+  }
+
+  /// Deletes the throwaway unsigned-upload release once the run no longer
+  /// needs it (the workflow has already downloaded it).
+  void _cleanupSrc() {
+    final id = _srcReleaseId;
+    if (id != null) {
+      _srcReleaseId = null;
+      _gh.deleteRelease(id); // fire-and-forget
+    }
   }
 
   Future<void> _onTick() async {
@@ -231,6 +245,7 @@ class _SignScreenState extends State<SignScreen> {
             }
           });
           _log('Done — signed IPA published ✓', 'ok');
+          _cleanupSrc();
           if (_triggeredAt != null) {
             ConfigStore.instance.setLastSignSeconds(
                 DateTime.now().difference(_triggeredAt!).inSeconds);

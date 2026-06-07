@@ -46,7 +46,7 @@ class _HomeShellState extends State<HomeShell> {
           Positioned(
             left: 0,
             right: 0,
-            bottom: MediaQuery.viewPaddingOf(context).bottom + 10,
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 2,
             child: Center(child: _TabBar(index: _tab, onTap: _select)),
           ),
         ],
@@ -70,42 +70,44 @@ class _TabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(30),
+      borderRadius: BorderRadius.circular(40),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: c.chrome,
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(40),
             border: Border.all(color: c.chromeBorder, width: 0.5),
             boxShadow: [
               BoxShadow(
                   color: Colors.black.withValues(alpha: c.isDark ? 0.45 : 0.14),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8)),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10)),
             ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (var i = 0; i < _tabs.length; i++) ...[
+                if (i > 0) const SizedBox(width: 6),
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: () => onTap(i),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 9),
                     decoration: BoxDecoration(
                       color: i == index ? AppColors.accent.withValues(alpha: 0.16) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(22),
+                      borderRadius: BorderRadius.circular(28),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(i == index ? _tabs[i].$2 : _tabs[i].$1,
                             size: 24, color: i == index ? AppColors.accent : c.labelTertiary),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(_tabs[i].$3,
                             style: TextStyle(
                                 fontSize: 10,
@@ -115,6 +117,7 @@ class _TabBar extends StatelessWidget {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ),

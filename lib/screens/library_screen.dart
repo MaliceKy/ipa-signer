@@ -49,6 +49,8 @@ class LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _deleteFile(SignedFile f) async {
     await LibraryStore.instance.removeFile(f.runTag);
+    // Also remove the signed release from GitHub (frees storage).
+    GitHubService(ConfigStore.instance).deleteSignedRelease(f.runTag);
     await load();
     if (mounted) showToast(context, 'IPA file deleted', icon: CupertinoIcons.trash);
   }

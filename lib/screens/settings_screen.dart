@@ -97,6 +97,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  bool _cleaning = false;
+
+  Future<void> _cleanup() async {
+    final confirm = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Clean up leftovers?'),
+        content: const Text(
+            '\nDeletes the throwaway “src-” upload releases left on GitHub after signing. '
+            'Your signed apps and the signer app are not affected.'),
+        actions: [
+          CupertinoDialogAction(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          CupertinoDialogAction(isDestructiveAction: true, onPressed: () => Navigator.pop(context, true), child: const Text('Clean up')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _cleaning = true);
+    final n = await GitHubService(ConfigStore.instance).cleanupUploads();
+    if (!mounted) return;
+    setState(() => _cleaning = false);
+    showToast(context, n == 0 ? 'Nothing to clean' : 'Removed $n leftover upload${n == 1 ? '' : 's'}',
+        tone: ToastTone.ok, icon: CupertinoIcons.check_mark_circled);
+  }
+
   bool get _canVerify => _token.text.isNotEmpty && _owner.text.isNotEmpty && _repo.text.isNotEmpty;
 
   @override
@@ -217,6 +242,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Text('Manage Sources', style: AppType.body(AppColors.accent)),
             ),
           ]),
+          const SizedBox(height: 22),
+          const SectionHeader('Maintenance'),
+          GroupCard(children: [
+            RowTile(
+              last: true,
+              onTap: _cleaning ? null : _cleanup,
+              trailing: _cleaning
+                  ? const CupertinoActivityIndicator()
+                  : Icon(CupertinoIcons.chevron_right, size: 16, color: c.labelTertiary),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Clean up leftover uploads', style: AppType.body(c.label)),
+                  Text('Delete throwaway “src-” upload releases', style: AppType.footnote(c.labelSecondary)),
+                ],
+              ),
+            ),
+          ]),
+          const SectionFooter(
+              'Signing never creates certificates or provisioning profiles — it reuses '
+              'the ones in your repo secrets. The only by-product is GitHub Releases: '
+              'unsigned uploads (auto-deleted after each sign) and your signed apps '
+              '(managed from the Library).'),
           if (!widget.isFirstRun) ...[
             const SizedBox(height: 28),
             GroupCard(children: [
