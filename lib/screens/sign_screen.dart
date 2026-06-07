@@ -93,6 +93,7 @@ class _SignScreenState extends State<SignScreen> {
   Timer? _poll;
   Timer? _ease;
   int _tick = 0;
+  final _consoleCtl = ScrollController();
 
   static const _stepNames = [
     'Build zsign',
@@ -124,7 +125,21 @@ class _SignScreenState extends State<SignScreen> {
   void dispose() {
     _poll?.cancel();
     _ease?.cancel();
+    _consoleCtl.dispose();
     super.dispose();
+  }
+
+  /// Keeps the console pinned to the newest line *only* once content overflows.
+  /// Short logs stay top-aligned (no dead whitespace above them).
+  void _followConsole() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_consoleCtl.hasClients) return;
+      final pos = _consoleCtl.position;
+      // Follow the tail unless the user has scrolled up to read.
+      if (pos.maxScrollExtent - pos.pixels < 80) {
+        _consoleCtl.jumpTo(pos.maxScrollExtent);
+      }
+    });
   }
 
   void _log(String text, [String tone = 'neutral']) {
@@ -133,6 +148,7 @@ class _SignScreenState extends State<SignScreen> {
         '${now.minute.toString().padLeft(2, '0')}:'
         '${now.second.toString().padLeft(2, '0')}';
     if (mounted) setState(() => _lines.add(_Line(stamp, text, tone)));
+    _followConsole();
   }
 
   Future<void> _start() async {
@@ -500,7 +516,7 @@ class _SignScreenState extends State<SignScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              reverse: true,
+              controller: _consoleCtl,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
