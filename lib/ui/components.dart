@@ -47,6 +47,9 @@ class AppIcon extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          // Decode at display size (not full res) so long lists stay light.
+          cacheWidth: (size * 3).round(),
+          cacheHeight: (size * 3).round(),
           errorBuilder: (_, _, _) => monogram),
     );
   }
@@ -518,6 +521,39 @@ class RowTile extends StatelessWidget {
             child: Container(height: 0.5, color: c.separator),
           ),
       ],
+    );
+  }
+}
+
+/// Wraps one row of a *lazy* list so the whole list still reads as a single
+/// inset card (rounded top on the first item, rounded bottom on the last).
+class LazyCardItem extends StatelessWidget {
+  const LazyCardItem({super.key, required this.index, required this.total, required this.child});
+  final int index;
+  final int total;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final first = index == 0;
+    final last = index == total - 1;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.bgElevated,
+        border: Border(
+          left: BorderSide(color: c.separator, width: 0.5),
+          right: BorderSide(color: c.separator, width: 0.5),
+          top: first ? BorderSide(color: c.separator, width: 0.5) : BorderSide.none,
+          bottom: last ? BorderSide(color: c.separator, width: 0.5) : BorderSide.none,
+        ),
+        borderRadius: BorderRadius.vertical(
+          top: first ? const Radius.circular(kRadiusCard) : Radius.zero,
+          bottom: last ? const Radius.circular(kRadiusCard) : Radius.zero,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
     );
   }
 }

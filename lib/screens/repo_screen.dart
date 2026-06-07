@@ -5,6 +5,7 @@ import '../services/catalog_service.dart';
 import '../services/library_store.dart';
 import '../ui/components.dart';
 import '../ui/scaffolds.dart';
+import '../ui/tokens.dart';
 import 'app_tile.dart';
 
 /// Shows the apps inside a single repository.
@@ -44,27 +45,48 @@ class _RepoScreenState extends State<RepoScreen> {
                 (a.developer ?? '').toLowerCase().contains(_query))
             .toList();
 
+    final c = context.c;
     return CompactScaffold(
       title: widget.source.name,
-      child: ListView(
-        padding: const EdgeInsets.only(top: 8, bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: SearchField(placeholder: 'Search ${widget.source.name}', onChanged: (v) => setState(() => _query = v.toLowerCase())),
           ),
           if (apps.isEmpty)
-            EmptyState(
-                icon: CupertinoIcons.search,
-                title: _query.isEmpty ? 'No apps' : 'No results',
-                message: _query.isEmpty ? 'This repository has no apps.' : 'Nothing matches “$_query”.')
-          else ...[
-            SectionHeader('${apps.length} app${apps.length == 1 ? '' : 's'}'),
-            GroupCard(children: [
-              for (var i = 0; i < apps.length; i++)
-                CatalogAppTile(app: apps[i], installedVersion: _installedVersion(apps[i]), last: i == apps.length - 1, onReturn: _loadLib),
-            ]),
-          ],
+            Expanded(
+              child: EmptyState(
+                  icon: CupertinoIcons.search,
+                  title: _query.isEmpty ? 'No apps' : 'No results',
+                  message: _query.isEmpty ? 'This repository has no apps.' : 'Nothing matches “$_query”.'),
+            )
+          else
+            Expanded(
+              // Lazy list: only on-screen rows are built (handles huge repos).
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                itemCount: apps.length + 1,
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 16, bottom: 6),
+                      child: Text('${apps.length} app${apps.length == 1 ? '' : 's'}',
+                          style: AppType.footnote(c.labelSecondary).copyWith(letterSpacing: 0.4)),
+                    );
+                  }
+                  final idx = i - 1;
+                  final app = apps[idx];
+                  final last = idx == apps.length - 1;
+                  return LazyCardItem(
+                    index: idx,
+                    total: apps.length,
+                    child: CatalogAppTile(app: app, installedVersion: _installedVersion(app), last: last, onReturn: _loadLib),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );

@@ -85,11 +85,16 @@ class CatalogScreenState extends State<CatalogScreen> {
           ? [SliverToBoxAdapter(child: EmptyState(icon: CupertinoIcons.search, title: 'No results', message: 'Nothing matches “$_query”.'))]
           : [
               SliverToBoxAdapter(child: SectionHeader('${results.length} result${results.length == 1 ? '' : 's'}')),
-              SliverToBoxAdapter(
-                child: GroupCard(children: [
-                  for (var i = 0; i < results.length; i++)
-                    CatalogAppTile(app: results[i], installedVersion: _installedVersion(results[i]), last: i == results.length - 1, showSource: true, onReturn: load),
-                ]),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList.builder(
+                  itemCount: results.length,
+                  itemBuilder: (context, i) => LazyCardItem(
+                    index: i,
+                    total: results.length,
+                    child: CatalogAppTile(app: results[i], installedVersion: _installedVersion(results[i]), last: i == results.length - 1, showSource: true, onReturn: load),
+                  ),
+                ),
               ),
             ];
     } else {
