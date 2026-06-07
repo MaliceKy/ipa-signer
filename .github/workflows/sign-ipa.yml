@@ -94,6 +94,25 @@ jobs:
           python3 scripts/make_manifest.py signed.ipa "$IPA_URL" "${{ inputs.app_name }}" > manifest.plist
           cat manifest.plist
 
+      - name: Extract signing info (profile expiry)
+        run: |
+          # The .mobileprovision is a CMS/PKCS7-signed XML plist; decode on Linux.
+          openssl smime -inform der -verify -noverify -in profile.mobileprovision -out profile.plist 2>/dev/null || true
+          python3 - <<'EOF'
+          import plistlib, json, datetime
+          out = {"signedAt": datetime.datetime.utcnow().isoformat() + "Z"}
+          try:
+              p = plistlib.load(open("profile.plist", "rb"))
+              exp = p.get("ExpirationDate")
+              out["profileExpiry"] = exp.isoformat() if exp else None
+              out["profileName"] = p.get("Name")
+          except Exception as e:
+              out["error"] = str(e)
+          open("info.json", "w").write(json.dumps(out))
+          print(out)
+          EOF
+          cat info.json
+
       - name: Publish signed IPA + manifest to a Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,10 +120,10 @@ jobs:
           TAG="${{ inputs.run_tag }}"
           TITLE="Signed: ${{ inputs.app_name }}"
           [ "$TITLE" = "Signed: " ] && TITLE="Signed: $TAG"
-          gh release create "$TAG" signed.ipa manifest.plist \
+          gh release create "$TAG" signed.ipa manifest.plist info.json \
             --title "$TITLE" \
             --notes "Signed IPA for run \`$TAG\`. Install via the app." \
-          || gh release upload "$TAG" signed.ipa manifest.plist --clobber
+          || gh release upload "$TAG" signed.ipa manifest.plist info.json --clobber
 
       - name: Output install URL
         run: |

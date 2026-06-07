@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sign_job.dart';
+import '../services/catalog_service.dart';
 import '../services/config_store.dart';
 import '../services/github_service.dart';
 import '../services/library_store.dart';
@@ -27,6 +28,8 @@ class LibraryScreenState extends State<LibraryScreen> {
   List<LibraryEntry> _lib = [];
   List<SignedFile> _files = [];
   List<StashedIpa> _stash = [];
+  List<CatalogApp> _updates = []; // catalog apps newer than installed
+  DateTime? _expiry;
   bool _loading = true;
   bool _adding = false;
 
@@ -40,14 +43,79 @@ class LibraryScreenState extends State<LibraryScreen> {
     final lib = await LibraryStore.instance.library();
     final files = await LibraryStore.instance.files();
     final stash = await LibraryStore.instance.stashed();
+    final gh = GitHubService(ConfigStore.instance);
+
+    // Profile expiry: stored after a sign, else fetched from app-latest once.
+    var exp = await ConfigStore.instance.profileExpiry;
+    if (exp == null) {
+      final iso = await gh.fetchProfileExpiry('app-latest');
+      if (iso != null) {
+        await ConfigStore.instance.setProfileExpiry(iso);
+        exp = DateTime.tryParse(iso);
+      }
+    }
+
+    // Updates: catalog apps whose version differs from what's installed.
+    final urls = await ConfigStore.instance.sources;
+    final catalog = urls.isEmpty ? <CatalogApp>[] : await CatalogService().loadAll(urls);
+    final byId = <String, CatalogApp>{};
+    for (final a in catalog) {
+      byId[SignJob(title: a.name, subtitle: '', bundleId: a.bundleId).signedBundleId] = a;
+    }
+    final updates = <CatalogApp>[];
+    final installedById = {for (final l in lib) l.bundleId: l.version};
+    byId.forEach((id, a) {
+      final installed = installedById[id];
+      if (installed != null && a.version != null && a.version != installed) updates.add(a);
+    });
+
     if (!mounted) return;
     setState(() {
       _lib = lib;
       _files = files;
       _stash = stash;
+      _updates = updates;
+      _expiry = exp;
       _loading = false;
     });
   }
+
+  Future<void> _resignAll() async {
+    final targets = _lib.where((l) => l.downloadUrl != null && l.downloadUrl!.isNotEmpty).toList();
+    if (targets.isEmpty) {
+      showToast(context, 'No re-signable apps (originals unknown)', tone: ToastTone.error);
+      return;
+    }
+    for (final l in targets) {
+      if (!mounted) break;
+      await startSign(context, _entryJob(l));
+    }
+    await load();
+  }
+
+  SignJob _entryJob(LibraryEntry l) => SignJob(
+        title: l.name,
+        subtitle: 'Re-sign · v${l.version}',
+        tint: l.tintColor,
+        sizeBytes: l.sizeBytes,
+        version: l.version,
+        bundleId: l.bundleId,
+        sourceName: l.sourceName,
+        ipaUrl: l.downloadUrl,
+        nameForSigning: l.name,
+      );
+
+  SignJob _catalogJob(CatalogApp a) => SignJob(
+        title: a.name,
+        subtitle: '${a.developer ?? a.sourceName} · v${a.version ?? '?'}',
+        tint: a.tintColor,
+        sizeBytes: a.sizeBytes,
+        version: a.version,
+        bundleId: a.bundleId,
+        sourceName: a.sourceName,
+        ipaUrl: a.downloadUrl,
+        nameForSigning: a.name,
+      );
 
   Future<void> _addIpa() async {
     final result = await FilePicker.pickFiles(type: FileType.any, withData: true);
@@ -152,6 +220,7 @@ class LibraryScreenState extends State<LibraryScreen> {
       onRefresh: load,
       trailing: trailing,
       slivers: [
+        if (_expiryBanner(c) != null) SliverToBoxAdapter(child: _expiryBanner(c)!),
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 2, 16, 18),
@@ -162,8 +231,28 @@ class LibraryScreenState extends State<LibraryScreen> {
             ]),
           ),
         ),
+        if (_updates.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SectionHeader('Updates available')),
+          SliverToBoxAdapter(
+            child: GroupCard(children: [
+              for (var i = 0; i < _updates.length; i++) _updateRow(c, _updates[i], i == _updates.length - 1),
+            ]),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 22)),
+        ],
         if (_lib.isNotEmpty) ...[
-          const SliverToBoxAdapter(child: SectionHeader('Installed apps')),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('INSTALLED APPS', style: AppType.footnote(c.labelSecondary).copyWith(letterSpacing: 0.4)),
+                  LinkButton(label: 'Re-sign all', icon: CupertinoIcons.refresh, onTap: _resignAll),
+                ],
+              ),
+            ),
+          ),
           SliverToBoxAdapter(
             child: GroupCard(children: [
               for (var i = 0; i < _lib.length; i++) _appRow(c, _lib[i], i == _lib.length - 1),
@@ -191,6 +280,70 @@ class LibraryScreenState extends State<LibraryScreen> {
         ),
         const SliverToBoxAdapter(child: SectionFooter('Signed IPA files stay reinstallable from their GitHub Release without re-signing.')),
       ],
+    );
+  }
+
+  Widget? _expiryBanner(AppColors c) {
+    final exp = _expiry;
+    if (exp == null) return null;
+    final days = exp.difference(DateTime.now()).inDays;
+    if (days > 45) return null; // only warn when it's getting close
+    final expired = days < 0;
+    final col = expired ? c.red : c.amber;
+    final msg = expired
+        ? 'Signing profile expired — re-sign to keep your apps opening.'
+        : 'Signing profile expires in $days day${days == 1 ? '' : 's'} — re-sign your apps.';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          children: [
+            Icon(CupertinoIcons.exclamationmark_triangle_fill, color: col, size: 22),
+            const SizedBox(width: 12),
+            Expanded(child: Text(msg, style: AppType.subhead(c.label))),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _resignAll,
+              child: Text('Re-sign all', style: TextStyle(color: col, fontWeight: FontWeight.w600, fontSize: 15)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _updateRow(AppColors c, CatalogApp a, bool last) {
+    final id = SignJob(title: a.name, subtitle: '', bundleId: a.bundleId).signedBundleId;
+    var oldV = '';
+    for (final l in _lib) {
+      if (l.bundleId == id) {
+        oldV = l.version;
+        break;
+      }
+    }
+    return RowTile(
+      last: last,
+      leftInset: 72,
+      leading: AppIcon(name: a.name, tint: a.tintColor, iconUrl: a.iconUrl, size: 44),
+      trailing: GestureDetector(
+        onTap: () => startSign(context, _catalogJob(a)).then((_) => load()),
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(color: AppColors.accent, borderRadius: BorderRadius.circular(15)),
+          alignment: Alignment.center,
+          child: const Text('UPDATE', style: TextStyle(color: CupertinoColors.white, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 0.2)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.callout(c.label).copyWith(fontWeight: FontWeight.w600)),
+          Text('v$oldV → v${a.version}', style: AppType.footnote(c.labelSecondary).copyWith(fontFeatures: kTabular)),
+        ],
+      ),
     );
   }
 

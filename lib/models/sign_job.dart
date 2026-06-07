@@ -51,9 +51,14 @@ class SignJob {
   static const bundlePrefix = 'com.maliceky.ipasign';
 
   /// Deterministic bundle id under the wildcard (so re-signs update in place).
+  ///
+  /// Derived from the app *name*, not the upstream bundle id: many tweak repos
+  /// ship several apps that share one bundle id (e.g. every YouTube tweak uses
+  /// `com.google.ios.youtube`). Keying off the name keeps them distinct so they
+  /// coexist on-device and track install state independently.
   String get signedBundleId {
     if (bundleId != null && bundleId!.startsWith(bundlePrefix)) return bundleId!;
-    final base = (bundleId ?? title).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final base = title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     return '$bundlePrefix.${base.isEmpty ? 'app' : base}';
   }
 }

@@ -262,6 +262,10 @@ class _SignScreenState extends State<SignScreen> {
           });
           _log('Done — signed IPA published ✓', 'ok');
           _cleanupSrc();
+          // Capture the provisioning profile expiry CI just published.
+          _gh.fetchProfileExpiry(_runTag!).then((iso) {
+            if (iso != null) ConfigStore.instance.setProfileExpiry(iso);
+          });
           if (_triggeredAt != null) {
             ConfigStore.instance.setLastSignSeconds(
                 DateTime.now().difference(_triggeredAt!).inSeconds);

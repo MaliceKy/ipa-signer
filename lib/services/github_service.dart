@@ -238,6 +238,21 @@ class GitHubService {
     return 'itms-services://?action=download-manifest&url=$manifest';
   }
 
+  /// Reads the profile-expiry info.json published with a signed release.
+  /// Returns the ISO expiry string, or null.
+  Future<String?> fetchProfileExpiry(String runTag) async {
+    final slug = await _slug;
+    try {
+      final res = await http.get(Uri.parse(
+          'https://github.com/$slug/releases/download/$runTag/info.json'));
+      if (res.statusCode != 200) return null;
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      return j['profileExpiry']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ── Cleanup ────────────────────────────────────────────────────────────────
   Future<List<Map<String, dynamic>>> listReleases() async {
     final slug = await _slug;

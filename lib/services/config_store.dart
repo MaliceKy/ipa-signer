@@ -16,6 +16,7 @@ class ConfigStore {
   static const _kSources = 'catalog_sources'; // newline-separated URLs
   static const _kThemeMode = 'theme_mode'; // system | light | dark
   static const _kPromptName = 'prompt_for_name';
+  static const _kProfileExpiry = 'profile_expiry'; // ISO date from CI
   static const _kLastDuration = 'last_sign_seconds'; // ETA baseline
 
   Future<String?> get token => _storage.read(key: _kToken);
@@ -68,6 +69,14 @@ class ConfigStore {
 
   Future<void> setPromptForName(bool v) =>
       _storage.write(key: _kPromptName, value: v ? '1' : '0');
+
+  Future<DateTime?> get profileExpiry async {
+    final raw = await _storage.read(key: _kProfileExpiry);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> setProfileExpiry(String iso) =>
+      _storage.write(key: _kProfileExpiry, value: iso);
 
   // ── Catalog sources (add/remove individually) ──────────────────────────────
   Future<void> setSources(List<String> urls) =>
