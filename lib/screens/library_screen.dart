@@ -64,7 +64,7 @@ class LibraryScreenState extends State<LibraryScreen> {
     if (!_loading && _lib.isEmpty && _files.isEmpty) {
       return LargeTitleScaffold(
         title: 'Library',
-        bottomInset: 60,
+        bottomInset: 96,
         trailing: trailing,
         slivers: const [
           SliverToBoxAdapter(
@@ -82,7 +82,7 @@ class LibraryScreenState extends State<LibraryScreen> {
 
     return LargeTitleScaffold(
       title: 'Library',
-      bottomInset: 60,
+      bottomInset: 96,
       onRefresh: load,
       trailing: trailing,
       slivers: [

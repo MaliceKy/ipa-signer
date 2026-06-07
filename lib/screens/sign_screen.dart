@@ -13,10 +13,38 @@ import '../ui/components.dart';
 import '../ui/scaffolds.dart';
 import '../ui/tokens.dart';
 
-/// Pushes the Sign screen as a modal and runs the job.
-Future<void> startSign(BuildContext context, SignJob job) {
-  return Navigator.of(context, rootNavigator: true).push(
-    CupertinoPageRoute(fullscreenDialog: true, builder: (_) => SignScreen(job: job)),
+/// Pushes the Sign screen as a modal and runs the job. If the "prompt for
+/// name" setting is on, asks for a custom app name first.
+Future<void> startSign(BuildContext context, SignJob job) async {
+  var j = job;
+  if (await ConfigStore.instance.promptForName) {
+    if (!context.mounted) return;
+    final name = await _askName(context, job.nameForSigning ?? job.title);
+    if (name == null) return; // cancelled
+    final clean = name.trim();
+    if (clean.isNotEmpty) j = job.copyWith(title: clean, nameForSigning: clean);
+  }
+  if (!context.mounted) return;
+  Navigator.of(context, rootNavigator: true).push(
+    CupertinoPageRoute(fullscreenDialog: true, builder: (_) => SignScreen(job: j)),
+  );
+}
+
+Future<String?> _askName(BuildContext context, String suggested) {
+  final ctl = TextEditingController(text: suggested);
+  return showCupertinoDialog<String>(
+    context: context,
+    builder: (context) => CupertinoAlertDialog(
+      title: const Text('App name'),
+      content: Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: CupertinoTextField(controller: ctl, autofocus: true, placeholder: 'Display name'),
+      ),
+      actions: [
+        CupertinoDialogAction(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        CupertinoDialogAction(isDefaultAction: true, onPressed: () => Navigator.pop(context, ctl.text), child: const Text('Sign')),
+      ],
+    ),
   );
 }
 
@@ -137,7 +165,7 @@ class _SignScreenState extends State<SignScreen> {
       });
       final tag = await _gh.triggerSign(
         ipaUrl: url,
-        appName: widget.job.title,
+        appName: widget.job.nameForSigning, // null → keep the IPA's own name
         bundleId: widget.job.signedBundleId,
       );
       setState(() {
@@ -287,7 +315,7 @@ class _SignScreenState extends State<SignScreen> {
     // Record to Library (we can't truly know iOS finished, but the user
     // confirmed the OTA prompt; log it so it shows in Library).
     await LibraryStore.instance.recordInstall(
-      name: widget.job.title,
+      name: widget.job.nameForSigning ?? widget.job.title,
       tint: (widget.job.tint ?? AppColors.accent).toARGB32(),
       version: widget.job.version ?? '1.0.0',
       sizeBytes: widget.job.sizeBytes ?? 0,
@@ -329,17 +357,19 @@ class _SignScreenState extends State<SignScreen> {
       trailing: ChromeIconButton(
           icon: CupertinoIcons.share, onTap: () => copyToClipboard(context, _fullLog, 'Log')),
       bottomBar: _dock(c, signed, failed),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-        children: [
-          _progressCard(c, barColor, pctColor, failed, signed),
-          const SizedBox(height: 16),
-          _console(c),
-          if (failed && _error != null) ...[
-            const SizedBox(height: 14),
-            _errorBanner(c),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+        child: Column(
+          children: [
+            _progressCard(c, barColor, pctColor, failed, signed),
+            const SizedBox(height: 16),
+            Expanded(child: _console(c)),
+            if (failed && _error != null) ...[
+              const SizedBox(height: 14),
+              _errorBanner(c),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -453,8 +483,7 @@ class _SignScreenState extends State<SignScreen> {
               ],
             ),
           ),
-          SizedBox(
-            height: 236,
+          Expanded(
             child: SingleChildScrollView(
               reverse: true,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

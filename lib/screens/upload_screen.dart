@@ -58,7 +58,7 @@ class _UploadScreenState extends State<UploadScreen> {
     final c = context.c;
     return LargeTitleScaffold(
       title: 'Upload',
-      bottomInset: 60,
+      bottomInset: 96,
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         ChromeIconButton(
             icon: CupertinoIcons.folder,
@@ -74,27 +74,30 @@ class _UploadScreenState extends State<UploadScreen> {
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: GestureDetector(
               onTap: _pickFile,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 24),
-                decoration: BoxDecoration(
-                  color: c.bgElevated,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: c.separatorStrong, width: 1.5),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(18)),
-                      child: const Icon(CupertinoIcons.doc, size: 30, color: AppColors.accent),
-                    ),
-                    const SizedBox(height: 14),
-                    Text('Pick an .ipa from Files', style: AppType.title3(c.label), textAlign: TextAlign.center),
-                    const SizedBox(height: 5),
-                    Text('Sign an IPA already on your device.', style: AppType.subhead(c.labelSecondary), textAlign: TextAlign.center),
-                  ],
+              child: DashedRoundedBorder(
+                color: AppColors.accent.withValues(alpha: 0.7),
+                radius: 16,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 34, horizontal: 24),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: c.isDark ? 0.06 : 0.05),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(18)),
+                        child: const Icon(CupertinoIcons.cloud_upload, size: 30, color: AppColors.accent),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('Pick an .ipa from Files', style: AppType.title3(c.label), textAlign: TextAlign.center),
+                      const SizedBox(height: 5),
+                      Text('Tap to choose an IPA already on your device.', style: AppType.subhead(c.labelSecondary), textAlign: TextAlign.center),
+                    ],
+                  ),
                 ),
               ),
             ),

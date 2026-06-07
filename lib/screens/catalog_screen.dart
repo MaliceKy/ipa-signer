@@ -90,29 +90,43 @@ class CatalogScreenState extends State<CatalogScreen> {
               message: 'Nothing matches “$_query”. Try a different name or developer.'),
         ),
       ];
-    } else {
+    } else if (_query.isNotEmpty) {
+      // Flat results; show the repo on each row so it's never ambiguous.
       body = [
-        SliverToBoxAdapter(child: SectionHeader('${filtered.length} app${filtered.length == 1 ? '' : 's'}')),
+        SliverToBoxAdapter(child: SectionHeader('${filtered.length} result${filtered.length == 1 ? '' : 's'}')),
         SliverToBoxAdapter(
-          child: GroupCard(
-            children: [
-              for (var i = 0; i < filtered.length; i++)
-                _appRow(c, filtered[i], i == filtered.length - 1),
-            ],
-          ),
+          child: GroupCard(children: [
+            for (var i = 0; i < filtered.length; i++)
+              _appRow(c, filtered[i], i == filtered.length - 1, showSource: true),
+          ]),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 18),
-            child: Center(child: Text('Aggregated from your sources · Pull to refresh', style: AppType.caption(c.labelTertiary))),
+      ];
+    } else {
+      // One section per repository so apps are clearly grouped by source.
+      final bySource = <String, List<CatalogApp>>{};
+      for (final a in filtered) {
+        (bySource[a.sourceName] ??= []).add(a);
+      }
+      body = [
+        for (final entry in bySource.entries) ...[
+          SliverToBoxAdapter(child: SectionHeader('${entry.key} · ${entry.value.length}')),
+          SliverToBoxAdapter(
+            child: GroupCard(children: [
+              for (var i = 0; i < entry.value.length; i++)
+                _appRow(c, entry.value[i], i == entry.value.length - 1),
+            ]),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 18)),
+        ],
+        SliverToBoxAdapter(
+          child: Center(child: Text('Pull to refresh', style: AppType.caption(c.labelTertiary))),
         ),
       ];
     }
 
     return LargeTitleScaffold(
       title: 'Catalog',
-      bottomInset: 60,
+      bottomInset: 96,
       onRefresh: load,
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         ChromeIconButton(icon: CupertinoIcons.folder, onTap: _openSources),
@@ -123,12 +137,15 @@ class CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
-  Widget _appRow(AppColors c, CatalogApp a, bool last) {
+  Widget _appRow(AppColors c, CatalogApp a, bool last, {bool showSource = false}) {
     final inst = _installedVersion(a);
     final installed = inst != null;
     final upToDate = installed && inst == a.version;
     final btnLabel = upToDate ? 'OPEN' : (installed ? 'UPDATE' : 'GET');
     final tint = a.tintColor ?? AppColors.accent;
+    final subtitle = showSource
+        ? [if (a.developer != null) a.developer!, a.sourceName].join('  ·  ')
+        : (a.developer ?? a.sourceName);
     return RowTile(
       last: last,
       leftInset: 84,
@@ -149,14 +166,13 @@ class CatalogScreenState extends State<CatalogScreen> {
         children: [
           Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.headline(c.label)),
           const SizedBox(height: 2),
-          Text(a.developer ?? a.sourceName,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote(c.labelSecondary)),
+          Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote(c.labelSecondary)),
           const SizedBox(height: 3),
           Text(
             [
               if (a.version != null) 'v${a.version}',
               if (a.prettySize != null) a.prettySize!,
-              if (a.category != null) a.category!,
+              if (a.versionDate != null) 'Updated ${_shortDate(a.versionDate!)}',
             ].join('  ·  '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -165,6 +181,13 @@ class CatalogScreenState extends State<CatalogScreen> {
         ],
       ),
     );
+  }
+
+  String _shortDate(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    const m = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${m[d.month - 1]} ${d.day}';
   }
 
   SignJob _job(CatalogApp a) => SignJob(
@@ -176,6 +199,7 @@ class CatalogScreenState extends State<CatalogScreen> {
         bundleId: a.bundleId,
         sourceName: a.sourceName,
         ipaUrl: a.downloadUrl,
+        nameForSigning: a.name,
       );
 }
 

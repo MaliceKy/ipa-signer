@@ -33,6 +33,9 @@ class LargeTitleScaffold extends StatelessWidget {
             backgroundColor: c.chrome,
             border: Border(bottom: BorderSide(color: c.chromeBorder, width: 0.0)),
             automaticallyImplyLeading: false,
+            // Tabs live together in an IndexedStack; the shared nav-bar Hero
+            // would otherwise collide (Library title bleeding over Catalog).
+            transitionBetweenRoutes: false,
             trailing: trailing,
           ),
           if (onRefresh != null) CupertinoSliverRefreshControl(onRefresh: onRefresh),
@@ -76,6 +79,7 @@ class CompactScaffold extends StatelessWidget {
         border: Border(bottom: BorderSide(color: c.chromeBorder, width: 0.5)),
         leading: leading,
         trailing: trailing,
+        transitionBetweenRoutes: false,
         automaticallyImplyLeading: leading == null,
       ),
       child: bottomBar == null

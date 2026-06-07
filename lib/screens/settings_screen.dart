@@ -37,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _ok = false;
   List<CatalogSource> _sources = [];
   late String _mode = widget.themeMode;
+  bool _promptForName = false;
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _owner.text = await cfg.owner ?? '';
     _repo.text = await cfg.repo ?? '';
     _branch.text = await cfg.branch;
+    _promptForName = await cfg.promptForName;
     final urls = await cfg.sources;
     final src = await CatalogService().loadSources(urls);
     if (mounted) setState(() => _sources = src);
@@ -174,6 +176,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SectionFooter('The token signs and triggers the workflow on GitHub Actions. Stored in the Keychain — never synced.'),
+          const SizedBox(height: 22),
+          const SectionHeader('Signing'),
+          GroupCard(children: [
+            RowTile(
+              last: true,
+              trailing: CupertinoSwitch(
+                value: _promptForName,
+                onChanged: (v) {
+                  setState(() => _promptForName = v);
+                  ConfigStore.instance.setPromptForName(v);
+                },
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Prompt for app name', style: AppType.body(c.label)),
+                  Text('Ask for a custom name before each sign', style: AppType.footnote(c.labelSecondary)),
+                ],
+              ),
+            ),
+          ]),
+          const SectionFooter('When off, catalog apps keep their real name and uploaded files keep the name baked into the IPA.'),
           const SizedBox(height: 22),
           const SectionHeader('Installed repositories'),
           GroupCard(children: [

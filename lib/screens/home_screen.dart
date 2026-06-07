@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Colors;
 
 import '../ui/tokens.dart';
 import 'catalog_screen.dart';
@@ -42,7 +43,12 @@ class _HomeShellState extends State<HomeShell> {
               LibraryScreen(key: _libraryKey, themeMode: widget.themeMode, onThemeChanged: widget.onThemeChanged),
             ],
           ),
-          Positioned(left: 0, right: 0, bottom: 0, child: _TabBar(index: _tab, onTap: _select)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: MediaQuery.viewPaddingOf(context).bottom + 10,
+            child: Center(child: _TabBar(index: _tab, onTap: _select)),
+          ),
         ],
       ),
     );
@@ -63,28 +69,43 @@ class _TabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return ClipRect(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(30),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
-          padding: const EdgeInsets.only(top: 8, bottom: 26),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             color: c.chrome,
-            border: Border(top: BorderSide(color: c.chromeBorder, width: 0.5)),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: c.chromeBorder, width: 0.5),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: c.isDark ? 0.45 : 0.14),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8)),
+            ],
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               for (var i = 0; i < _tabs.length; i++)
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onTap(i),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTap(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: i == index ? AppColors.accent.withValues(alpha: 0.16) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(i == index ? _tabs[i].$2 : _tabs[i].$1,
-                            size: 26, color: i == index ? AppColors.accent : c.labelTertiary),
-                        const SizedBox(height: 3),
+                            size: 24, color: i == index ? AppColors.accent : c.labelTertiary),
+                        const SizedBox(height: 2),
                         Text(_tabs[i].$3,
                             style: TextStyle(
                                 fontSize: 10,

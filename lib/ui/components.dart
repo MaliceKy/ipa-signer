@@ -661,6 +661,68 @@ class _ToastBubble extends StatelessWidget {
   }
 }
 
+// ───────────────────────────── Dashed border ─────────────────────────────
+/// Paints a dashed rounded-rect outline (blueprint look) around [child].
+class DashedRoundedBorder extends StatelessWidget {
+  const DashedRoundedBorder({
+    super.key,
+    required this.child,
+    required this.color,
+    this.radius = 16,
+    this.dash = 7,
+    this.gap = 5,
+    this.strokeWidth = 1.6,
+  });
+  final Widget child;
+  final Color color;
+  final double radius;
+  final double dash;
+  final double gap;
+  final double strokeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedPainter(color: color, radius: radius, dash: dash, gap: gap, strokeWidth: strokeWidth),
+      child: child,
+    );
+  }
+}
+
+class _DashedPainter extends CustomPainter {
+  _DashedPainter({required this.color, required this.radius, required this.dash, required this.gap, required this.strokeWidth});
+  final Color color;
+  final double radius;
+  final double dash;
+  final double gap;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+    final rrect = RRect.fromRectAndRadius(
+      Offset(strokeWidth / 2, strokeWidth / 2) & Size(size.width - strokeWidth, size.height - strokeWidth),
+      Radius.circular(radius),
+    );
+    final path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      var dist = 0.0;
+      while (dist < metric.length) {
+        canvas.drawPath(metric.extractPath(dist, dist + dash), paint);
+        dist += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedPainter old) =>
+      old.color != color || old.radius != radius || old.dash != dash || old.gap != gap || old.strokeWidth != strokeWidth;
+}
+
 // ───────────────────────────── Misc helpers ─────────────────────────────
 void copyToClipboard(BuildContext context, String text, String what) {
   Clipboard.setData(ClipboardData(text: text));

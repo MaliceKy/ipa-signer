@@ -15,6 +15,7 @@ class ConfigStore {
   static const _kBranch = 'gh_branch';
   static const _kSources = 'catalog_sources'; // newline-separated URLs
   static const _kThemeMode = 'theme_mode'; // system | light | dark
+  static const _kPromptName = 'prompt_for_name';
   static const _kLastDuration = 'last_sign_seconds'; // ETA baseline
 
   Future<String?> get token => _storage.read(key: _kToken);
@@ -60,6 +61,13 @@ class ConfigStore {
 
   Future<void> setThemeMode(String mode) =>
       _storage.write(key: _kThemeMode, value: mode);
+
+  // ── Signing prefs ─────────────────────────────────────────────────────────
+  Future<bool> get promptForName async =>
+      (await _storage.read(key: _kPromptName)) == '1';
+
+  Future<void> setPromptForName(bool v) =>
+      _storage.write(key: _kPromptName, value: v ? '1' : '0');
 
   // ── Catalog sources (add/remove individually) ──────────────────────────────
   Future<void> setSources(List<String> urls) =>

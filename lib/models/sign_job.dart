@@ -13,9 +13,10 @@ class SignJob {
     this.sourceName,
     this.ipaUrl,
     this.upload,
+    this.nameForSigning,
   });
 
-  final String title; // display name
+  final String title; // display name in the UI
   final String subtitle;
   final Color? tint;
   final int? sizeBytes;
@@ -25,7 +26,25 @@ class SignJob {
   final String? ipaUrl; // catalog / url / re-sign
   final PlatformFile? upload; // local file
 
+  /// Display name to bake into the signed app (zsign `-n`). When null, the
+  /// IPA keeps its own embedded name — important for uploads, where the file
+  /// name is not a good app name.
+  final String? nameForSigning;
+
   bool get isUpload => upload != null;
+
+  SignJob copyWith({String? title, String? nameForSigning}) => SignJob(
+        title: title ?? this.title,
+        subtitle: subtitle,
+        tint: tint,
+        sizeBytes: sizeBytes,
+        version: version,
+        bundleId: bundleId,
+        sourceName: sourceName,
+        ipaUrl: ipaUrl,
+        upload: upload,
+        nameForSigning: nameForSigning ?? this.nameForSigning,
+      );
 
   /// Wildcard prefix this user's Ad-Hoc provisioning profile covers.
   /// Every signed app's bundle id must fall under it to install.

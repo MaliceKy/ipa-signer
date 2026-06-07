@@ -58,6 +58,7 @@ class LibraryDetailScreen extends StatelessWidget {
                           bundleId: entry.bundleId,
                           sourceName: entry.sourceName,
                           ipaUrl: entry.downloadUrl,
+                          nameForSigning: entry.name,
                         ),
                       )
                   : null,
