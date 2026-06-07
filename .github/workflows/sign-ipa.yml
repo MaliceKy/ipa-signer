@@ -38,15 +38,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            g++ cmake libssl-dev zlib1g-dev git curl python3
+            g++ make pkg-config libssl-dev zlib1g-dev git curl python3
 
       - name: Build zsign
         run: |
           git clone --depth 1 https://github.com/zhlynn/zsign.git /tmp/zsign
-          cd /tmp/zsign
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j"$(nproc)"
-          sudo cp build/zsign /usr/local/bin/zsign
+          make -C /tmp/zsign/build/linux -j"$(nproc)"
+          sudo cp /tmp/zsign/bin/zsign /usr/local/bin/zsign
           zsign -v || true
 
       - name: Restore certificate & provisioning profile
