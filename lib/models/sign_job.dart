@@ -14,6 +14,7 @@ class SignJob {
     this.ipaUrl,
     this.upload,
     this.nameForSigning,
+    this.iconUrl,
   });
 
   final String title; // display name in the UI
@@ -25,6 +26,7 @@ class SignJob {
   final String? sourceName;
   final String? ipaUrl; // catalog / url / re-sign
   final PlatformFile? upload; // local file
+  final String? iconUrl; // remote app icon
 
   /// Display name to bake into the signed app (zsign `-n`). When null, the
   /// IPA keeps its own embedded name — important for uploads, where the file
@@ -44,6 +46,7 @@ class SignJob {
         ipaUrl: ipaUrl,
         upload: upload,
         nameForSigning: nameForSigning ?? this.nameForSigning,
+        iconUrl: iconUrl,
       );
 
   /// Wildcard prefix this user's Ad-Hoc provisioning profile covers.

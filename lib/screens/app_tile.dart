@@ -56,7 +56,8 @@ class CatalogAppTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       trailing: _GetButton(
         label: upToDate ? 'OPEN' : (installed ? 'UPDATE' : 'GET'),
-        color: upToDate ? c.labelSecondary : tint,
+        color: upToDate ? c.labelSecondary : (installed ? AppColors.accent : tint),
+        faded: upToDate,
         onTap: upToDate ? openDetail : () => startSign(context, _job()).then((_) => onReturn?.call()),
       ),
       child: Column(
@@ -95,26 +96,31 @@ class CatalogAppTile extends StatelessWidget {
         sourceName: app.sourceName,
         ipaUrl: app.downloadUrl,
         nameForSigning: app.name,
+        iconUrl: app.iconUrl,
       );
 }
 
 class _GetButton extends StatelessWidget {
-  const _GetButton({required this.label, required this.color, required this.onTap});
+  const _GetButton({required this.label, required this.color, required this.onTap, this.faded = false});
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool faded;
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 32,
-        constraints: const BoxConstraints(minWidth: 74),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: c.fill, borderRadius: BorderRadius.circular(16)),
-        alignment: Alignment.center,
-        child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.2)),
+    return Opacity(
+      opacity: faded ? 0.5 : 1,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 32,
+          constraints: const BoxConstraints(minWidth: 74),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(color: c.fill, borderRadius: BorderRadius.circular(16)),
+          alignment: Alignment.center,
+          child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.2)),
+        ),
       ),
     );
   }

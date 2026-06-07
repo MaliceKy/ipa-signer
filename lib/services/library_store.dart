@@ -27,6 +27,7 @@ class LibraryEntry {
     required this.sourceName,
     required this.bundleId,
     this.downloadUrl,
+    this.iconUrl,
     required this.history,
   });
 
@@ -39,6 +40,7 @@ class LibraryEntry {
   final String sourceName;
   final String bundleId;
   final String? downloadUrl; // original unsigned IPA, for re-sign
+  final String? iconUrl;
   final List<VersionRecord> history;
 
   Color get tintColor => Color(tint);
@@ -53,6 +55,7 @@ class LibraryEntry {
         'sourceName': sourceName,
         'bundleId': bundleId,
         'downloadUrl': downloadUrl,
+        'iconUrl': iconUrl,
         'history': history.map((h) => h.toJson()).toList(),
       };
 
@@ -66,6 +69,7 @@ class LibraryEntry {
         sourceName: j['sourceName'] ?? '',
         bundleId: j['bundleId'] ?? '',
         downloadUrl: j['downloadUrl'],
+        iconUrl: j['iconUrl'],
         history: ((j['history'] as List?) ?? [])
             .whereType<Map<String, dynamic>>()
             .map(VersionRecord.fromJson)
@@ -89,6 +93,9 @@ class SignedFile {
         runTag: j['runTag'] ?? '',
       );
 }
+
+/// Number of catalog updates available; drives the Library tab badge.
+final updatesBadge = ValueNotifier<int>(0);
 
 /// An unsigned IPA stashed for later (uploaded to a kept GitHub release).
 class StashedIpa {
@@ -165,6 +172,7 @@ class LibraryStore {
     required String sourceName,
     required String bundleId,
     String? downloadUrl,
+    String? iconUrl,
     required String runTag,
   }) async {
     final now = DateTime.now();
@@ -192,6 +200,7 @@ class LibraryStore {
           sourceName: sourceName,
           bundleId: bundleId,
           downloadUrl: downloadUrl ?? e.downloadUrl,
+          iconUrl: iconUrl ?? e.iconUrl,
           history: hist,
         ),
       );
@@ -208,6 +217,7 @@ class LibraryStore {
           sourceName: sourceName,
           bundleId: bundleId,
           downloadUrl: downloadUrl,
+          iconUrl: iconUrl,
           history: [record],
         ),
       );

@@ -357,6 +357,7 @@ class _SignScreenState extends State<SignScreen> {
       sourceName: widget.job.sourceName ?? 'Sideloaded',
       bundleId: widget.job.signedBundleId,
       downloadUrl: widget.job.ipaUrl,
+      iconUrl: widget.job.iconUrl,
       runTag: _runTag!,
     );
     if (!mounted) return;
@@ -422,8 +423,8 @@ class _SignScreenState extends State<SignScreen> {
         children: [
           Row(
             children: [
-              widget.job.tint != null
-                  ? AppIcon(name: widget.job.title, tint: widget.job.tint, size: 44)
+              (widget.job.tint != null || widget.job.iconUrl != null)
+                  ? AppIcon(name: widget.job.title, tint: widget.job.tint, iconUrl: widget.job.iconUrl, size: 44)
                   : Container(
                       width: 44,
                       height: 44,

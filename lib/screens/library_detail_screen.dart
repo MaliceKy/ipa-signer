@@ -25,7 +25,7 @@ class LibraryDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: Row(
               children: [
-                AppIcon(name: entry.name, tint: entry.tintColor, size: 92),
+                AppIcon(name: entry.name, tint: entry.tintColor, iconUrl: entry.iconUrl, size: 92),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -59,6 +59,7 @@ class LibraryDetailScreen extends StatelessWidget {
                           sourceName: entry.sourceName,
                           ipaUrl: entry.downloadUrl,
                           nameForSigning: entry.name,
+                          iconUrl: entry.iconUrl,
                         ),
                       )
                   : null,

@@ -133,5 +133,6 @@ class AppDetailScreen extends StatelessWidget {
         sourceName: app.sourceName,
         ipaUrl: app.downloadUrl,
         nameForSigning: app.name,
+        iconUrl: app.iconUrl,
       );
 }

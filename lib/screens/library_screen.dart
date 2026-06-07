@@ -69,6 +69,7 @@ class LibraryScreenState extends State<LibraryScreen> {
       if (installed != null && a.version != null && a.version != installed) updates.add(a);
     });
 
+    updatesBadge.value = updates.length;
     if (!mounted) return;
     setState(() {
       _lib = lib;
@@ -103,6 +104,7 @@ class LibraryScreenState extends State<LibraryScreen> {
         sourceName: l.sourceName,
         ipaUrl: l.downloadUrl,
         nameForSigning: l.name,
+        iconUrl: l.iconUrl,
       );
 
   SignJob _catalogJob(CatalogApp a) => SignJob(
@@ -115,6 +117,7 @@ class LibraryScreenState extends State<LibraryScreen> {
         sourceName: a.sourceName,
         ipaUrl: a.downloadUrl,
         nameForSigning: a.name,
+        iconUrl: a.iconUrl,
       );
 
   Future<void> _addIpa() async {
@@ -372,7 +375,7 @@ class LibraryScreenState extends State<LibraryScreen> {
       onTap: () => Navigator.of(context)
           .push(CupertinoPageRoute(builder: (_) => LibraryDetailScreen(entry: l)))
           .then((_) => load()),
-      leading: AppIcon(name: l.name, tint: l.tintColor, size: 44),
+      leading: AppIcon(name: l.name, tint: l.tintColor, iconUrl: l.iconUrl, size: 44),
       trailing: Icon(CupertinoIcons.chevron_right, size: 16, color: c.labelTertiary),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

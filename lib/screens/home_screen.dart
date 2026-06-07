@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors;
 
+import '../services/library_store.dart';
 import '../ui/tokens.dart';
 import 'catalog_screen.dart';
 import 'library_screen.dart';
@@ -105,8 +106,12 @@ class _TabBar extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(i == index ? _tabs[i].$2 : _tabs[i].$1,
-                            size: 24, color: i == index ? AppColors.accent : c.labelTertiary),
+                        _TabIcon(
+                          icon: i == index ? _tabs[i].$2 : _tabs[i].$1,
+                          color: i == index ? AppColors.accent : c.labelTertiary,
+                          badge: i == 2, // Library shows the updates badge
+                          borderColor: c.chrome,
+                        ),
                         const SizedBox(height: 3),
                         Text(_tabs[i].$3,
                             style: TextStyle(
@@ -122,6 +127,46 @@ class _TabBar extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Tab-bar icon with an optional red updates badge (driven by [updatesBadge]).
+class _TabIcon extends StatelessWidget {
+  const _TabIcon({required this.icon, required this.color, required this.badge, required this.borderColor});
+  final IconData icon;
+  final Color color;
+  final bool badge;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconWidget = Icon(icon, size: 24, color: color);
+    if (!badge) return iconWidget;
+    return ValueListenableBuilder<int>(
+      valueListenable: updatesBadge,
+      builder: (context, count, _) {
+        if (count <= 0) return iconWidget;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            iconWidget,
+            Positioned(
+              right: -5,
+              top: -3,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF3B30),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: borderColor, width: 1.5),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
