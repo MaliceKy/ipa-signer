@@ -18,7 +18,7 @@ iPhone (this app)                 GitHub Actions (Ubuntu)
 2. The app triggers the `Sign IPA` workflow via the GitHub API, passing a unique
    `run_tag`. (Uploaded IPAs are first pushed to a throwaway Release so CI can
    download them.)
-3. CI builds [`zsign`](https://github.com/zhlh/zsign), signs the IPA with your
+3. CI builds [`zsign`](https://github.com/zhlynn/zsign), signs the IPA with your
    `.p12` + `.mobileprovision` (stored as repo secrets), generates an OTA
    `manifest.plist`, and publishes both as assets on a Release tagged `run_tag`.
 4. The app polls the run, finds it by name (`sign-<run_tag>`), and once it

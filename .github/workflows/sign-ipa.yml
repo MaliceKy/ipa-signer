@@ -42,7 +42,7 @@ jobs:
 
       - name: Build zsign
         run: |
-          git clone --depth 1 https://github.com/zhlh/zsign.git /tmp/zsign
+          git clone --depth 1 https://github.com/zhlynn/zsign.git /tmp/zsign
           cd /tmp/zsign
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release -j"$(nproc)"
