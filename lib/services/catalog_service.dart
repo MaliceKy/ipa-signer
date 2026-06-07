@@ -17,6 +17,7 @@ class CatalogApp {
     this.description,
     this.tintColor,
     this.category,
+    this.urlScheme,
     required this.sourceName,
   });
 
@@ -31,6 +32,7 @@ class CatalogApp {
   final String? description;
   final Color? tintColor;
   final String? category;
+  final String? urlScheme; // optional: launch the installed app
   final String sourceName;
 
   String? get prettySize {
@@ -66,6 +68,7 @@ class CatalogApp {
           ?.toString(),
       tintColor: _parseHex(j['tintColor']?.toString()),
       category: (j['category'] ?? j['cat'] ?? j['subtitle'])?.toString(),
+      urlScheme: (j['urlScheme'] ?? j['scheme'] ?? j['openURL'])?.toString(),
       sourceName: sourceName,
     );
   }

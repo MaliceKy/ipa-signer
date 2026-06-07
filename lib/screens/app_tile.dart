@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sign_job.dart';
 import '../services/catalog_service.dart';
@@ -48,6 +49,21 @@ class CatalogAppTile extends StatelessWidget {
         .push(CupertinoPageRoute(builder: (_) => AppDetailScreen(app: app, installedVersion: installedVersion)))
         .then((_) => onReturn?.call());
 
+    Future<void> openApp() async {
+      final scheme = app.urlScheme;
+      if (scheme == null || scheme.isEmpty) {
+        openDetail(); // no scheme known → fall back to the detail page
+        return;
+      }
+      final uri = Uri.parse(scheme.contains('://') ? scheme : '$scheme://');
+      try {
+        final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!ok && context.mounted) openDetail();
+      } catch (_) {
+        if (context.mounted) showToast(context, "Couldn't open ${app.name}", tone: ToastTone.error);
+      }
+    }
+
     return RowTile(
       last: last,
       leftInset: 84,
@@ -58,7 +74,7 @@ class CatalogAppTile extends StatelessWidget {
         label: upToDate ? 'OPEN' : (installed ? 'UPDATE' : 'GET'),
         color: upToDate ? c.labelSecondary : (installed ? AppColors.accent : tint),
         faded: upToDate,
-        onTap: upToDate ? openDetail : () => startSign(context, _job()).then((_) => onReturn?.call()),
+        onTap: upToDate ? openApp : () => startSign(context, _job()).then((_) => onReturn?.call()),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
