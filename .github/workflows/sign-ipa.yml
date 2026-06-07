@@ -1,0 +1,117 @@
+name: Sign IPA
+
+# The app triggers this via the GitHub API (workflow_dispatch) and finds the
+# resulting run by matching this run name against the unique run_tag it sent.
+run-name: "sign-${{ inputs.run_tag }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_url:
+        description: "Direct HTTPS URL to the UNSIGNED .ipa to sign"
+        required: true
+        type: string
+      app_name:
+        description: "Display name override (optional)"
+        required: false
+        type: string
+      bundle_id:
+        description: "Bundle identifier override (optional)"
+        required: false
+        type: string
+      run_tag:
+        description: "Unique tag set by the app to correlate + name the release"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for scripts)
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ cmake libssl-dev zlib1g-dev git curl python3
+
+      - name: Build zsign
+        run: |
+          git clone --depth 1 https://github.com/zhlh/zsign.git /tmp/zsign
+          cd /tmp/zsign
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j"$(nproc)"
+          sudo cp build/zsign /usr/local/bin/zsign
+          zsign -v || true
+
+      - name: Restore certificate & provisioning profile
+        env:
+          P12_BASE64: ${{ secrets.P12_BASE64 }}
+          MOBILEPROVISION_BASE64: ${{ secrets.MOBILEPROVISION_BASE64 }}
+        run: |
+          if [ -z "$P12_BASE64" ] || [ -z "$MOBILEPROVISION_BASE64" ]; then
+            echo "::error::Missing P12_BASE64 / MOBILEPROVISION_BASE64 secrets. See README." && exit 1
+          fi
+          echo "$P12_BASE64" | base64 -d > cert.p12
+          echo "$MOBILEPROVISION_BASE64" | base64 -d > profile.mobileprovision
+
+      - name: Download unsigned IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          URL="${{ inputs.ipa_url }}"
+          # When the app uploaded the IPA to our own repo, it passes the API
+          # asset URL; download it authenticated so private repos work too.
+          case "$URL" in
+            *api.github.com/repos/*/releases/assets/*)
+              curl -fL --retry 3 --retry-delay 2 \
+                -H "Accept: application/octet-stream" \
+                -H "Authorization: Bearer $GH_TOKEN" \
+                -o unsigned.ipa "$URL" ;;
+            *)
+              curl -fL --retry 3 --retry-delay 2 -o unsigned.ipa "$URL" ;;
+          esac
+          ls -lh unsigned.ipa
+
+      - name: Sign IPA
+        env:
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.app_name }}" ]; then ARGS+=(-n "${{ inputs.app_name }}"); fi
+          if [ -n "${{ inputs.bundle_id }}" ]; then ARGS+=(-b "${{ inputs.bundle_id }}"); fi
+          zsign -k cert.p12 -p "$P12_PASSWORD" -m profile.mobileprovision \
+                -z 9 -o signed.ipa "${ARGS[@]}" unsigned.ipa
+          ls -lh signed.ipa
+
+      - name: Generate OTA manifest
+        run: |
+          TAG="${{ inputs.run_tag }}"
+          IPA_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/signed.ipa"
+          python3 scripts/make_manifest.py signed.ipa "$IPA_URL" "${{ inputs.app_name }}" > manifest.plist
+          cat manifest.plist
+
+      - name: Publish signed IPA + manifest to a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ inputs.run_tag }}"
+          TITLE="Signed: ${{ inputs.app_name }}"
+          [ "$TITLE" = "Signed: " ] && TITLE="Signed: $TAG"
+          gh release create "$TAG" signed.ipa manifest.plist \
+            --title "$TITLE" \
+            --notes "Signed IPA for run \`$TAG\`. Install via the app." \
+          || gh release upload "$TAG" signed.ipa manifest.plist --clobber
+
+      - name: Output install URL
+        run: |
+          TAG="${{ inputs.run_tag }}"
+          MANIFEST_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/manifest.plist"
+          echo "### ✅ Signed" >> "$GITHUB_STEP_SUMMARY"
+          echo "Install URL:" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`itms-services://?action=download-manifest&url=${MANIFEST_URL}\`" >> "$GITHUB_STEP_SUMMARY"
