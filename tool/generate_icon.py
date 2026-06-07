@@ -32,15 +32,6 @@ for i in range(0, S + 1, 64):
     d.line([(x, 0), (x, SS)], fill=col, width=w)
     d.line([(0, x), (SS, x)], fill=col, width=w)
 
-# ── corner registration marks ──
-cyan = (150, 210, 255, 235)
-arm, cw = sc(58), int(sc(7))
-for cx, cy, dx, dy in [(sc(76), sc(76), 1, 1), (SS - sc(76), sc(76), -1, 1),
-                       (sc(76), SS - sc(76), 1, -1), (SS - sc(76), SS - sc(76), -1, -1)]:
-    d.line([(cx, cy), (cx + dx * arm, cy)], fill=cyan, width=cw)
-    d.line([(cx, cy), (cx, cy + dy * arm)], fill=cyan, width=cw)
-
-
 # ── dashed rounded-square (dashes follow the full perimeter) ──
 def rounded_rect_points(x0, y0, x1, y1, r, step):
     pts = []
