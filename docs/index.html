@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IPA Signer</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #000; color: #fff; margin: 0;
+    display: flex; min-height: 100vh; align-items: center; justify-content: center;
+  }
+  .card { text-align: center; padding: 32px; max-width: 360px; }
+  .icon {
+    width: 96px; height: 96px; border-radius: 22px; margin: 0 auto 20px;
+    background: linear-gradient(160deg, #0A84FF, #0a4fbf);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: 700;
+    box-shadow: 0 10px 30px rgba(10,132,255,0.35);
+  }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  p { color: #8e8e93; font-size: 14px; line-height: 1.45; }
+  a.btn {
+    display: inline-block; margin-top: 24px; padding: 16px 32px;
+    background: #0a84ff; color: #fff; text-decoration: none;
+    border-radius: 14px; font-size: 17px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">IS</div>
+    <h1>IPA Signer</h1>
+    <p>Install or update the IPA Signer app on this iPhone.</p>
+    <a id="install" class="btn" href="#">Install / Update</a>
+    <p style="margin-top:28px">After installing, trust the certificate at<br>
+      <b>Settings → General → VPN &amp; Device Management</b> the first time.</p>
+  </div>
+<script>
+  // Always points at the fixed "app-latest" release tag.
+  var manifest = 'https://github.com/MaliceKy/ipa-signer/releases/download/app-latest/manifest.plist';
+  document.getElementById('install').href =
+    'itms-services://?action=download-manifest&url=' + encodeURIComponent(manifest);
+</script>
+</body>
+</html>
