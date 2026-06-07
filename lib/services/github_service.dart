@@ -87,9 +87,10 @@ class GitHubService {
     required Uint8List bytes,
     void Function(String stage)? onStage,
     void Function(double fraction)? onProgress,
+    String tagPrefix = 'src-', // 'stash-' for kept uploads (not auto-cleaned)
   }) async {
     final slug = await _slug;
-    final tag = 'src-${DateTime.now().millisecondsSinceEpoch}';
+    final tag = '$tagPrefix${DateTime.now().millisecondsSinceEpoch}';
 
     onStage?.call('Creating upload release…');
     final relRes = await http.post(

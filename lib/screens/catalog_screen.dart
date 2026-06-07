@@ -125,6 +125,7 @@ class CatalogScreenState extends State<CatalogScreen> {
 
   Widget _repoRow(AppColors c, CatalogSource s, bool last) {
     final failed = s.error != null;
+    final latest = _latestDate(s);
     return RowTile(
       last: last,
       leftInset: 72,
@@ -138,9 +139,23 @@ class CatalogScreenState extends State<CatalogScreen> {
           const SizedBox(height: 2),
           Text(failed ? 'Failed to load' : '${s.apps.length} app${s.apps.length == 1 ? '' : 's'}',
               style: AppType.footnote(failed ? c.red : c.labelSecondary)),
+          if (latest != null) ...[
+            const SizedBox(height: 2),
+            Text('Last updated ${fmtDate(latest)}', style: AppType.caption(c.labelTertiary)),
+          ],
         ],
       ),
     );
+  }
+
+  /// Newest app versionDate in the repo (ISO strings compare lexically).
+  String? _latestDate(CatalogSource s) {
+    String? best;
+    for (final a in s.apps) {
+      final d = a.versionDate;
+      if (d != null && (best == null || d.compareTo(best) > 0)) best = d;
+    }
+    return best;
   }
 
   /// Overlapped mini icons of the repo's first apps (folder fallback).

@@ -64,11 +64,17 @@ class CatalogAppTile extends StatelessWidget {
         children: [
           Text(app.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.headline(c.label)),
           const SizedBox(height: 2),
-          Text(
-            [if (app.developer != null) app.developer!, if (app.version != null) 'v${app.version}'].join('  ·  '),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppType.footnote(c.labelSecondary),
+          Row(
+            children: [
+              if (app.developer != null)
+                Flexible(
+                  child: Text(app.developer!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote(c.labelSecondary)),
+                ),
+              if (app.developer != null && app.version != null)
+                Text('  ·  ', style: AppType.footnote(c.labelSecondary)),
+              if (app.version != null)
+                Text('v${app.version}', style: AppType.footnote(c.labelSecondary)),
+            ],
           ),
           if (meta.isNotEmpty) ...[
             const SizedBox(height: 3),

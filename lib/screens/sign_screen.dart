@@ -612,15 +612,15 @@ class _SignScreenState extends State<SignScreen> {
   }
 
   Widget _dock(AppColors c, bool signed, bool failed) {
-    if (!signed && !failed && _runUrl == null) return const SizedBox.shrink();
+    final bottomPad = MediaQuery.viewPaddingOf(context).bottom + 14;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, bottomPad),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: [c.bg, c.bg.withValues(alpha: 0)],
-          stops: const [0.6, 1],
+          stops: const [0.55, 1],
         ),
       ),
       child: Column(
@@ -641,10 +641,27 @@ class _SignScreenState extends State<SignScreen> {
               icon: CupertinoIcons.doc_on_doc,
               onTap: () => copyToClipboard(context, _error ?? _fullLog, 'Error'),
             ),
-          if (_runUrl != null && !_installed) ...[
-            const SizedBox(height: 8),
-            LinkButton(label: 'Open run on GitHub', icon: CupertinoIcons.chevron_left_slash_chevron_right, onTap: _openRun),
-          ],
+          // Always reserve the link row so nothing clips into the home bar.
+          SizedBox(
+            height: 34,
+            child: Center(
+              child: _runUrl != null
+                  ? LinkButton(
+                      label: 'Open run on GitHub',
+                      icon: CupertinoIcons.chevron_left_slash_chevron_right,
+                      onTap: _openRun)
+                  : (signed || failed)
+                      ? const SizedBox.shrink()
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const CupertinoActivityIndicator(radius: 7),
+                            const SizedBox(width: 7),
+                            Text('Preparing run…', style: AppType.footnote(c.labelTertiary)),
+                          ],
+                        ),
+            ),
+          ),
         ],
       ),
     );

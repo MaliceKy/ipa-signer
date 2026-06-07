@@ -90,6 +90,35 @@ class SignedFile {
       );
 }
 
+/// An unsigned IPA stashed for later (uploaded to a kept GitHub release).
+class StashedIpa {
+  StashedIpa({
+    required this.id,
+    required this.name,
+    required this.sizeBytes,
+    required this.date,
+    required this.signUrl,
+    required this.releaseId,
+  });
+  final String id;
+  final String name;
+  final int sizeBytes;
+  final String date;
+  final String signUrl; // API asset URL the workflow can download
+  final int releaseId; // for deletion
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'name': name, 'sizeBytes': sizeBytes, 'date': date, 'signUrl': signUrl, 'releaseId': releaseId};
+  factory StashedIpa.fromJson(Map<String, dynamic> j) => StashedIpa(
+        id: j['id'] ?? '',
+        name: j['name'] ?? '',
+        sizeBytes: j['sizeBytes'] ?? 0,
+        date: j['date'] ?? '',
+        signUrl: j['signUrl'] ?? '',
+        releaseId: j['releaseId'] ?? 0,
+      );
+}
+
 /// Persists the Library (installed apps + signed files) in the keychain.
 class LibraryStore {
   LibraryStore._();
@@ -100,6 +129,7 @@ class LibraryStore {
   );
   static const _kLibrary = 'library_v1';
   static const _kFiles = 'signed_files_v1';
+  static const _kStash = 'stash_v1';
 
   Future<List<LibraryEntry>> library() async {
     final raw = await _storage.read(key: _kLibrary);
@@ -202,5 +232,27 @@ class LibraryStore {
     final files = await this.files();
     files.removeWhere((f) => f.runTag == runTag);
     await _saveFiles(files);
+  }
+
+  // ── Stashed (unsigned) IPAs ────────────────────────────────────────────────
+  Future<List<StashedIpa>> stashed() async {
+    final raw = await _storage.read(key: _kStash);
+    if (raw == null || raw.isEmpty) return [];
+    return (jsonDecode(raw) as List)
+        .whereType<Map<String, dynamic>>()
+        .map(StashedIpa.fromJson)
+        .toList();
+  }
+
+  Future<void> addStash(StashedIpa s) async {
+    final list = await stashed();
+    list.insert(0, s);
+    await _storage.write(key: _kStash, value: jsonEncode(list.map((e) => e.toJson()).toList()));
+  }
+
+  Future<void> removeStash(String id) async {
+    final list = await stashed();
+    list.removeWhere((s) => s.id == id);
+    await _storage.write(key: _kStash, value: jsonEncode(list.map((e) => e.toJson()).toList()));
   }
 }

@@ -1,6 +1,8 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/sign_job.dart';
 import '../services/config_store.dart';
 import '../services/github_service.dart';
 import '../services/library_store.dart';
@@ -9,6 +11,7 @@ import '../ui/scaffolds.dart';
 import '../ui/tokens.dart';
 import 'library_detail_screen.dart';
 import 'settings_screen.dart';
+import 'sign_screen.dart';
 import 'sources_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -23,7 +26,9 @@ class LibraryScreen extends StatefulWidget {
 class LibraryScreenState extends State<LibraryScreen> {
   List<LibraryEntry> _lib = [];
   List<SignedFile> _files = [];
+  List<StashedIpa> _stash = [];
   bool _loading = true;
+  bool _adding = false;
 
   @override
   void initState() {
@@ -34,12 +39,67 @@ class LibraryScreenState extends State<LibraryScreen> {
   Future<void> load() async {
     final lib = await LibraryStore.instance.library();
     final files = await LibraryStore.instance.files();
+    final stash = await LibraryStore.instance.stashed();
     if (!mounted) return;
     setState(() {
       _lib = lib;
       _files = files;
+      _stash = stash;
       _loading = false;
     });
+  }
+
+  Future<void> _addIpa() async {
+    final result = await FilePicker.pickFiles(type: FileType.any, withData: true);
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (!file.name.toLowerCase().endsWith('.ipa') || file.bytes == null) {
+      if (mounted) showToast(context, 'Please pick a .ipa file', tone: ToastTone.error, icon: CupertinoIcons.exclamationmark_circle);
+      return;
+    }
+    setState(() => _adding = true);
+    try {
+      final marked = await GitHubService(ConfigStore.instance).uploadUnsignedIpa(
+        fileName: file.name,
+        bytes: file.bytes!,
+        tagPrefix: 'stash-',
+      );
+      final signUrl = marked.split('#release=').first;
+      final releaseId = int.tryParse(marked.split('#release=').last) ?? 0;
+      await LibraryStore.instance.addStash(StashedIpa(
+        id: 'st${DateTime.now().millisecondsSinceEpoch}',
+        name: file.name,
+        sizeBytes: file.size,
+        date: DateTime.now().toIso8601String().substring(0, 10),
+        signUrl: signUrl,
+        releaseId: releaseId,
+      ));
+      await load();
+      if (mounted) showToast(context, 'Added to Library', tone: ToastTone.ok, icon: CupertinoIcons.check_mark_circled);
+    } catch (e) {
+      if (mounted) showToast(context, 'Upload failed', tone: ToastTone.error, icon: CupertinoIcons.exclamationmark_circle);
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
+  void _signStash(StashedIpa s) {
+    startSign(
+      context,
+      SignJob(
+        title: s.name.replaceAll('.ipa', ''),
+        subtitle: 'Stashed · ${fmtSize(s.sizeBytes)}',
+        sizeBytes: s.sizeBytes,
+        ipaUrl: s.signUrl,
+      ),
+    ).then((_) => load());
+  }
+
+  Future<void> _deleteStash(StashedIpa s) async {
+    await LibraryStore.instance.removeStash(s.id);
+    if (s.releaseId != 0) GitHubService(ConfigStore.instance).deleteRelease(s.releaseId);
+    await load();
+    if (mounted) showToast(context, 'Removed', icon: CupertinoIcons.trash);
   }
 
   Future<void> _reinstall(SignedFile f) async {
@@ -59,21 +119,25 @@ class LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     final c = context.c;
     final trailing = Row(mainAxisSize: MainAxisSize.min, children: [
+      _adding
+          ? const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: CupertinoActivityIndicator())
+          : ChromeIconButton(icon: CupertinoIcons.add, onTap: _addIpa),
       ChromeIconButton(icon: CupertinoIcons.folder, onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => const SourcesScreen()))),
       ChromeIconButton(icon: CupertinoIcons.gear_alt, onTap: () => Navigator.of(context).push(CupertinoPageRoute(builder: (_) => SettingsScreen(themeMode: widget.themeMode, onThemeChanged: widget.onThemeChanged)))),
     ]);
 
-    if (!_loading && _lib.isEmpty && _files.isEmpty) {
+    if (!_loading && _lib.isEmpty && _files.isEmpty && _stash.isEmpty) {
       return LargeTitleScaffold(
         title: 'Library',
         bottomInset: 96,
         trailing: trailing,
-        slivers: const [
+        slivers: [
           SliverToBoxAdapter(
             child: EmptyState(
                 icon: CupertinoIcons.square_stack_3d_up,
-                title: 'Nothing installed yet',
-                message: 'Apps you sign and install will be logged here with their version history.'),
+                title: 'Nothing here yet',
+                message: 'Sign apps to log them here, or tap + to stash an .ipa for later.',
+                action: LinkButton(label: 'Add an IPA', icon: CupertinoIcons.add, onTap: _addIpa)),
           ),
         ],
       );
@@ -105,6 +169,16 @@ class LibraryScreenState extends State<LibraryScreen> {
               for (var i = 0; i < _lib.length; i++) _appRow(c, _lib[i], i == _lib.length - 1),
             ]),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 22)),
+        ],
+        if (_stash.isNotEmpty) ...[
+          const SliverToBoxAdapter(child: SectionHeader('Stashed IPAs · unsigned')),
+          SliverToBoxAdapter(
+            child: GroupCard(children: [
+              for (var i = 0; i < _stash.length; i++) _stashRow(c, _stash[i], i == _stash.length - 1),
+            ]),
+          ),
+          const SliverToBoxAdapter(child: SectionFooter('IPAs saved for later. Tap one to sign & install it.')),
           const SliverToBoxAdapter(child: SizedBox(height: 22)),
         ],
         const SliverToBoxAdapter(child: SectionHeader('On-device .ipa files')),
@@ -158,6 +232,32 @@ class LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  Widget _stashRow(AppColors c, StashedIpa s, bool last) {
+    return RowTile(
+      last: last,
+      leftInset: 60,
+      onTap: () => _signStash(s),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(9)),
+        child: const Icon(CupertinoIcons.doc, size: 19, color: AppColors.accent),
+      ),
+      trailing: GestureDetector(
+        onTap: () => _deleteStash(s),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(CupertinoIcons.trash, size: 20, color: c.red)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontFamily: AppType.mono, fontSize: 14, color: c.label)),
+          Text('${fmtSize(s.sizeBytes)} · ${fmtDate(s.date)} · tap to sign',
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: AppType.footnote(c.labelSecondary).copyWith(fontFeatures: kTabular)),
+        ],
+      ),
+    );
+  }
+
   Widget _fileRow(AppColors c, SignedFile f, bool last) {
     return RowTile(
       last: last,
@@ -171,7 +271,7 @@ class LibraryScreenState extends State<LibraryScreen> {
       ),
       trailing: GestureDetector(
         onTap: () => _deleteFile(f),
-        child: Padding(padding: const EdgeInsets.all(6), child: Icon(CupertinoIcons.trash, size: 20, color: c.labelTertiary)),
+        child: Padding(padding: const EdgeInsets.all(6), child: Icon(CupertinoIcons.trash, size: 20, color: c.red)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
