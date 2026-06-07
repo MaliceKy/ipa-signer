@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/config_store.dart';
@@ -119,6 +120,24 @@ class _SignScreenState extends State<SignScreen> {
     await launchUrl(Uri.parse(_runUrl!), mode: LaunchMode.externalApplication);
   }
 
+  String get _fullLog => [
+        if (_runTag != null) 'run_tag: $_runTag',
+        if (_runUrl != null) 'run: $_runUrl',
+        'status: ${_status.name}',
+        '',
+        ..._log,
+        if (_error != null) '\nERROR:\n$_error',
+      ].join('\n');
+
+  Future<void> _copyLog() async {
+    await Clipboard.setData(ClipboardData(text: _fullLog));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log copied to clipboard')),
+      );
+    }
+  }
+
   ({String label, Color color, IconData icon}) get _statusDisplay {
     switch (_status) {
       case SignStatus.queued:
@@ -144,7 +163,16 @@ class _SignScreenState extends State<SignScreen> {
   Widget build(BuildContext context) {
     final d = _statusDisplay;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.appName ?? 'Sign')),
+      appBar: AppBar(
+        title: Text(widget.appName ?? 'Sign'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy_all),
+            tooltip: 'Copy log',
+            onPressed: _copyLog,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -181,9 +209,8 @@ class _SignScreenState extends State<SignScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: SingleChildScrollView(
-                  child: Text(
-                    [..._log, if (_error != null) '\nERROR:\n$_error']
-                        .join('\n'),
+                  child: SelectableText(
+                    _fullLog,
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 12,
